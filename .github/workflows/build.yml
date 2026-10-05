@@ -1,0 +1,47 @@
+name: Build Gemas Cute
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.1.1
+
+      - name: Descomprimir el zip y compilar
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/salida"
+          ZIP=$(find . -maxdepth 2 -name '*.zip' -not -path './.git/*' | head -n 1)
+          if [ -n "$ZIP" ]; then
+            echo "Descomprimiendo $ZIP"
+            mkdir -p /tmp/proyecto
+            unzip -q "$ZIP" -d /tmp/proyecto
+            BASE=/tmp/proyecto
+          else
+            echo "No hay zip: busco el proyecto ya subido en el repositorio"
+            BASE="$GITHUB_WORKSPACE"
+          fi
+          SETTINGS=$(find "$BASE" -name settings.gradle -not -path '*/.git/*' | head -n 1)
+          if [ -z "$SETTINGS" ]; then
+            echo "No encuentro settings.gradle. Sube el zip del mod al repositorio."
+            exit 1
+          fi
+          cd "$(dirname "$SETTINGS")"
+          gradle build --no-daemon
+          cp build/libs/*.jar "$GITHUB_WORKSPACE/salida/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gemas-cute-jar
+          path: salida/*.jar
